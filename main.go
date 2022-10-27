@@ -19,14 +19,34 @@ type MongoInstance struct {
 
 var mg MongoInstance
 
-const dbName = "fiber-hrms"
-const mongoURI = "mongodb://localhost:27017/" + dbName
+const dbName = "virtualsports"
+const mongoURI = "mongodb+srv://orestispantazos:9gJ3TvZ8HqSOUscY@virtualsports-cluster1.ddk9tdz.mongodb.net/virtualsports?retryWrites=true&w=majority" + dbName
 
 type Employee struct {
-	ID     string  `json:"id,omitempty" bson:"_id,omitempty"`
-	Name   string  `json:"name"`
-	Salary float64 `json:"salary"`
-	Age    float64 `json:"age"`
+	Id               primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	MatchDate        string             `json:"matchDate,omitempty" validate:"required"`
+	MatchTime        string             `json:"matchTime,omitempty" validate:"required"`
+	Cid              string             `json:"cId,omitempty" validate:"required"`
+	MatchID          string             `json:"matchId,omitempty" validate:"required"`
+	LeagueID         string             `json:"leagueId,omitempty" validate:"required"`
+	HomeTeam         string             `json:"homeTeam,omitempty" validate:"required"`
+	AwayTeam         string             `json:"awayTeam,omitempty" validate:"required"`
+	HalfTimeScore    string             `json:"halfTimeScore,omitempty" validate:"required"`
+	FullTimeScore    string             `json:"fullTimeScore,omitempty" validate:"required"`
+	TotalGoals       int32              `json:"totalGoals,omitempty" validate:"required"`
+	FirstHalfValue   string             `json:"firstHalfValue,omitempty" validate:"required"`
+	SecondHalfValue  string             `json:"secondHalfValue,omitempty" validate:"required"`
+	HomeWinOdd       float64            `json:"homeWinOdd,omitempty" validate:"required"`
+	DrawOdd          float64            `json:"drawOdd,omitempty" validate:"required"`
+	AwayWinOdd       float64            `json:"awayWinOdd,omitempty" validate:"required"`
+	Over_2_5_odd     float64            `json:"over_2_5_odd,omitempty" validate:"required"`
+	Under_2_5_odd    float64            `json:"under_2_5_odd,omitempty" validate:"required"`
+	Over_1_5_odd     float64            `json:"over_1_5_odd,omitempty" validate:"required"`
+	Under_1_5_odd    float64            `json:"under_1_5_odd,omitempty" validate:"required"`
+	Over_2_5_status  int32              `json:"over_2_5_status,omitempty" validate:"required"`
+	Under_2_5_status int32              `json:"under_2_5_status,omitempty" validate:"required"`
+	Over_1_5_status  int32              `json:"over_1_5_status,omitempty" validate:"required"`
+	Under_1_5_status int32              `json:"under_1_5_status,omitempty" validate:"required"`
 }
 
 func Connect() error {
@@ -55,11 +75,11 @@ func main() {
 	}
 	app := fiber.New()
 
-	app.Get("/employee", func(c *fiber.Ctx) error {
+	app.Get("/match", func(c *fiber.Ctx) error {
 
 		query := bson.D{{}}
 
-		cursor, err := mg.Db.Collection("employees").Find(c.Context(), query)
+		cursor, err := mg.Db.Collection("match").Find(c.Context(), query)
 		if err != nil {
 			return c.Status(500).SendString(err.Error())
 		}
@@ -71,97 +91,6 @@ func main() {
 		}
 
 		return c.JSON(employees)
-	})
-
-	app.Post("/employee", func(c *fiber.Ctx) error {
-		collection := mg.Db.Collection("employees")
-
-		employee := new(Employee)
-
-		if err := c.BodyParser(employee); err != nil {
-			return c.Status(400).SendString(err.Error())
-		}
-
-		employee.ID = ""
-
-		insertionResult, err := collection.InsertOne(c.Context(), employee)
-
-		if err != nil {
-			return c.Status(500).SendString(err.Error())
-		}
-
-		filter := bson.D{{Key: "_id", Value: insertionResult.InsertedID}}
-		createdRecord := collection.FindOne(c.Context(), filter)
-
-		createdEmployee := &Employee{}
-		createdRecord.Decode(createdEmployee)
-
-		return c.Status(201).JSON(createdEmployee)
-
-	})
-
-	app.Put("/employee/:id", func(c *fiber.Ctx) error {
-		idParam := c.Params("id")
-
-		employeeID, err := primitive.ObjectIDFromHex(idParam)
-
-		if err != nil {
-			return c.SendStatus(400)
-		}
-
-		employee := new(Employee)
-
-		if err := c.BodyParser(employee); err != nil {
-			return c.Status(400).SendString(err.Error())
-		}
-
-		query := bson.D{{Key: "_id", Value: employeeID}}
-		update := bson.D{
-			{Key: "$set",
-				Value: bson.D{
-					{Key: "name", Value: employee.Name},
-					{Key: "age", Value: employee.Age},
-					{Key: "salary", Value: employee.Salary},
-				},
-			},
-		}
-
-		err = mg.Db.Collection("employees").FindOneAndUpdate(c.Context(), query, update).Err()
-
-		if err != nil {
-			if err == mongo.ErrNoDocuments {
-				return c.SendStatus(400)
-			}
-			return c.SendStatus(500)
-		}
-
-		employee.ID = idParam
-
-		return c.Status(200).JSON(employee)
-
-	})
-
-	app.Delete("/employee/:id", func(c *fiber.Ctx) error {
-
-		employeeID, err := primitive.ObjectIDFromHex(c.Params("id"))
-
-		if err != nil {
-			return c.SendStatus(400)
-		}
-
-		query := bson.D{{Key: "_id", Value: employeeID}}
-		result, err := mg.Db.Collection("employees").DeleteOne(c.Context(), &query)
-
-		if err != nil {
-			return c.SendStatus(500)
-		}
-
-		if result.DeletedCount < 1 {
-			return c.SendStatus(404)
-		}
-
-		return c.Status(200).JSON("record deleted")
-
 	})
 
 	log.Fatal(app.Listen(":3000"))
